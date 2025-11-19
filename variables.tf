@@ -117,13 +117,3 @@ variable "github_token" {
   type        = string
   default     = ""
 }
-
-variable "image_name" {
-  type        = string
-  description = "Docker image name from ACR"
-}
-
-variable "image_tag" {
-  type        = string
-  description = "Docker image tag"
-}
