@@ -31,7 +31,7 @@ resource "azurerm_linux_web_app" "app_service" {
     WEBSITES_PORT                        = "9000"
     PORT = "9000"
     WEBSITES_ENABLE_APP_SERVICE_STORAGE  = "false"
-    cookie_secret = "3f42816e1c741ddf1fe249725cd1f8d2df4ceee07ea5f9973a941d58fd09d193"
+    cookie_secret = var.cookie_secret
     DATABASE_URL  = var.database_url
 
     # DB
