@@ -72,7 +72,7 @@ module "app_service" {
 
   # Medusa specific
   database_url  = module.database.connection_string
-  cookie_secret = var.cookie_secret
+  cookie_secret = random_password.cookie_secret.result
 
   jwt_secret = random_password.jwt_secret.result
 
@@ -92,6 +92,11 @@ module "app_service" {
 # Random secrets
 # ----------------------
 resource "random_password" "jwt_secret" {
+  length  = 32
+  special = false
+}
+
+resource "random_password" "cookie_secret" {
   length  = 32
   special = false
 }
