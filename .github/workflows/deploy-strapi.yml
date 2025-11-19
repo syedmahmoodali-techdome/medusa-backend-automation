@@ -55,7 +55,7 @@ jobs:
             brand_favicon_url: .clinic.branding.favicon_url,
             strapi_admin_firstname: .strapi.admin_firstname,
             strapi_admin_lastname: .strapi.admin_lastname,
-            database_url = .database.database_url
+            database_url: .database.database_url
           }' clinic-config.json > terraform.tfvars.json
           echo "terraform.tfvars.json generated."
 
