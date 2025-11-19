@@ -263,22 +263,21 @@ jobs:
       #   run: |
       #     az webapp restart --name "${{ needs.terraform.outputs.app_service_name }}" --resource-group "${{ needs.terraform.outputs.resource_group_name }}"
 
-      - name: Wait for Strapi /admin to be available
+      - name: Wait for Medusa API to be ready
         run: |
-          CMS_HOST="${{ needs.terraform.outputs.cms_url }}"
-          echo "Waiting for https://$CMS_HOST/admin to return HTTP 200 ..."
-          sleep 60
-          for i in $(seq 1 30); do
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://$CMS_HOST/admin" || true)
-            echo "Attempt $i: status=$HTTP_CODE"
-            if [ "$HTTP_CODE" = "200" ]; then
-              echo "Strapi admin is up at https://$CMS_HOST/admin"
+          API_URL="https://ali-clinic-app.azurewebsites.net/health"
+          echo "Waiting for $API_URL ..."
+          for i in {1..30}; do
+            status=$(curl -o /dev/null -s -w "%{http_code}" $API_URL)
+            echo "Attempt $i: status=$status"
+            if [ "$status" = "200" ]; then
               exit 0
             fi
-            sleep 15
+            sleep 10
           done
-          echo "Strapi did not become available within the timeout."
+          echo "Medusa did not become available."
           exit 1
+
 
 
 
