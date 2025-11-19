@@ -118,6 +118,14 @@ jobs:
       - name: Show repo layout (debug)
         run: ls -la || true
 
+      - name: Checkout Medusa backend repository
+        uses: actions/checkout@v3
+        with:
+          repository: smarter-EMR/ecomm-terraform
+          token: ${{ secrets.GH_PAT }}
+          path: ecomm-terraform
+
+
       - name: Create Dockerfile dynamically (inside my-medusa-store)
         working-directory: ecomm-terraform/my-medusa-store
         run: |
