@@ -4,6 +4,11 @@ variable "clinic_name" {
   description = "Clinic name"
 }
 
+variable "cookie_secret" {
+  type        = string
+  description = "Clinic name"
+}
+
 variable "resource_group_name" {
   type        = string
   description = "Resource group name"
