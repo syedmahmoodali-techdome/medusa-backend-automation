@@ -3,9 +3,9 @@ variable "clinic_name" {
   type        = string
 }
 
-#variable "database_url" {
-#  type = string
-#}
+variable "database_url" {
+  type = string
+}
 
 variable "clinic_region" {
   description = "Azure region (example: centralus)"
