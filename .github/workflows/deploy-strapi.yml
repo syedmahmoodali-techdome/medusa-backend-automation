@@ -131,36 +131,25 @@ jobs:
         run: |
           cat <<'DOCKERFILE' > Dockerfile
           # ---- Builder Image ----
-          FROM node:20 AS builder
+          FROM node:20-alpine
 
-          WORKDIR /app
+          # Set working directory for Medusa
+          WORKDIR /server
 
-          # Only copy package files first → enables Docker cache
+          # Copy package files
           COPY package.json package-lock.json ./
 
-          # Install dependencies (production only)
-          RUN npm ci --omit=dev
+          # IMPORTANT — Medusa requires this to avoid peer dependency conflicts
+          RUN npm install --legacy-peer-deps
 
-          # Copy rest of project
+          # Copy entire project
           COPY . .
 
-          # Build Medusa project
-          RUN npm run build
-
-          # ---- Production Image ----
-          FROM node:20
-
-          WORKDIR /app
-
-          # Copy only required files from builder stage
-          COPY --from=builder /app/node_modules ./node_modules
-          COPY --from=builder /app/dist ./dist
-          COPY --from=builder /app/package.json ./package.json
-
-          ENV PORT=9000
+          # Expose Medusa default port
           EXPOSE 9000
 
-          CMD ["npm", "run", "start"]
+          # Start Medusa using start.sh
+          CMD ["./start.sh"]
 
 
           DOCKERFILE
