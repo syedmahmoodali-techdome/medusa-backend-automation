@@ -130,30 +130,38 @@ jobs:
         working-directory: ecomm-terraform/my-medusa-store
         run: |
           cat <<'DOCKERFILE' > Dockerfile
+          # ---- Builder Image ----
+          FROM node:20 AS builder
+
+          WORKDIR /app
+
+          # Only copy package files first → enables Docker cache
+          COPY package.json package-lock.json ./
+
+          # Install dependencies (production only)
+          RUN npm ci --omit=dev
+
+          # Copy rest of project
+          COPY . .
+
+          # Build Medusa project
+          RUN npm run build
+
+          # ---- Production Image ----
           FROM node:20
 
           WORKDIR /app
 
-          COPY package*.json ./
+          # Copy only required files from builder stage
+          COPY --from=builder /app/node_modules ./node_modules
+          COPY --from=builder /app/dist ./dist
+          COPY --from=builder /app/package.json ./package.json
 
-          # Install medusa CLI globally
-          RUN npm install -g @medusajs/cli
-
-          # Install deps faster & deterministic
-          RUN npm install
-
-          # Copy the rest of the Medusa project
-          COPY . .
-
-          # Build Medusa backend
-          RUN npm run build
-
-          # Expose Medusa backend port
           ENV PORT=9000
           EXPOSE 9000
 
-          # Start Medusa backend
           CMD ["npm", "run", "start"]
+
 
           DOCKERFILE
           echo "Dockerfile created in ecomm-terraform/my-medusa-store"
