@@ -1,4 +1,4 @@
-name: Deploy Strapi CMS (Terraform + Docker + ACR + App Service)
+name: Deploy Medusa Backend (Terraform + Docker + ACR + App Service)
 
 on:
   workflow_dispatch:
@@ -7,8 +7,7 @@ on:
       - main
 
 env:
-  # default image name; everything else is dynamic from terraform outputs
-  IMAGE_NAME: strapi-app
+  IMAGE_NAME: medusa-backend
 
 jobs:
   terraform:
@@ -34,6 +33,7 @@ jobs:
 
       - name: Generate terraform.tfvars.json from clinic-config.json
         run: |
+          # keep existing mapping (adjust clinic-config.json as needed for medusa)
           jq '{
             clinic_name: .clinic.name,
             clinic_environment: .clinic.environment,
@@ -57,7 +57,6 @@ jobs:
             strapi_admin_lastname: .strapi.admin_lastname
           }' clinic-config.json > terraform.tfvars.json
           echo "terraform.tfvars.json generated."
-
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -106,3 +105,140 @@ jobs:
             APP=$(terraform output -raw app_service_name)
             echo "cms_url=${APP}.azurewebsites.net" >> $GITHUB_OUTPUT
           fi
+
+  deploy:
+    needs: terraform
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+
+      - name: Checkout infra repo (this repo)
+        uses: actions/checkout@v4
+
+      - name: Show repo layout (debug)
+        run: ls -la || true
+
+      - name: Create Dockerfile dynamically (inside my-medusa-store)
+        working-directory: ecomm-terraform/my-medusa-store
+        run: |
+          cat <<'DOCKERFILE' > Dockerfile
+          FROM node:20
+          WORKDIR /app
+          COPY package*.json ./
+          RUN npm install -g @medusajs/cli
+          RUN npm install --production=false
+          COPY . .
+          RUN npm run build
+          ENV PORT=9000
+          EXPOSE 9000
+          CMD ["npm", "start"]
+          DOCKERFILE
+          echo "Dockerfile created in ecomm-terraform/my-medusa-store"
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR Login
+        run: |
+          echo "ACR_NAME=${{ needs.terraform.outputs.acr_name }}"
+          az acr login --name "${{ needs.terraform.outputs.acr_name }}"
+
+      - name: Build Docker image
+        working-directory: ecomm-terraform/my-medusa-store
+        run: |
+          SHORT_SHA=${GITHUB_SHA::7}
+          ACR_SERVER="${{ needs.terraform.outputs.acr_login_server }}"
+          IMAGE="${ACR_SERVER}/${{ env.IMAGE_NAME }}:${SHORT_SHA}"
+          echo "Building image: $IMAGE"
+          docker build -t "$IMAGE" .
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Push Docker image to ACR
+        run: docker push "$IMAGE"
+
+      - name: Get ACR credentials
+        id: acrcreds
+        run: |
+          ACR_NAME="${{ needs.terraform.outputs.acr_name }}"
+          USER=$(az acr credential show --name "$ACR_NAME" --query "username" -o tsv)
+          PASS=$(az acr credential show --name "$ACR_NAME" --query "passwords[0].value" -o tsv)
+          echo "ACR_USER=$USER" >> $GITHUB_ENV
+          echo "ACR_PASS=$PASS" >> $GITHUB_ENV
+
+      - name: Configure App Service container + app settings
+        run: |
+          RG="${{ needs.terraform.outputs.resource_group_name }}"
+          APP="${{ needs.terraform.outputs.app_service_name }}"
+          IMAGE_NAME_ENV="$IMAGE"
+
+          az webapp config container set \
+            --name "$APP" \
+            --resource-group "$RG" \
+            --docker-custom-image-name "$IMAGE" \
+            --docker-registry-server-url "https://${{ needs.terraform.outputs.acr_login_server }}" \
+            --docker-registry-server-user "$ACR_USER" \
+            --docker-registry-server-password "$ACR_PASS"
+
+          # Build DATABASE_URL: postgres://user:pass@host:port/dbname?sslmode=require
+          DB_HOST="${{ needs.terraform.outputs.db_host }}"
+          DB_PORT="${{ needs.terraform.outputs.db_port }}"
+          DB_NAME="${{ needs.terraform.outputs.db_name }}"
+          DB_USER="${{ needs.terraform.outputs.db_user }}"
+          DB_PASS="${{ needs.terraform.outputs.db_password }}"
+
+          DATABASE_URL="postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
+
+          APP_SETTINGS=(
+            "WEBSITES_PORT=9000"
+            "DATABASE_URL=${DATABASE_URL}"
+            "NODE_ENV=production"
+            # Provide secrets via repo secrets:
+            "JWT_SECRET=${{ secrets.JWT_SECRET }}"
+            "COOKIE_SECRET=${{ secrets.COOKIE_SECRET }}"
+            # optional extras - add these secrets if you use redis or cors, otherwise remove
+            "REDIS_URL=${{ secrets.REDIS_URL }}"
+            "PUBLIC_BACKEND_URL=https://${{ needs.terraform.outputs.cms_url }}"
+          )
+
+          SETTINGS_JSON=""
+          for s in "${APP_SETTINGS[@]}"; do
+            SETTINGS_JSON="$SETTINGS_JSON $s"
+          done
+
+          az webapp config appsettings set --name "$APP" --resource-group "$RG" --settings $SETTINGS_JSON
+
+      - name: Wait for Medusa to respond
+        run: |
+          APP_HOST="${{ needs.terraform.outputs.cms_url }}"
+          echo "Waiting for https://${APP_HOST} to respond..."
+          # wait until curl returns success
+          for i in $(seq 1 30); do
+            if curl -sS --fail "https://${APP_HOST}" >/dev/null 2>&1; then
+              echo "App responded at https://${APP_HOST}"
+              exit 0
+            fi
+            echo "Attempt $i: no response yet..."
+            sleep 10
+          done
+          echo "App did not respond in time."
+          exit 1
+
+      - name: Delete temporary ACR
+        if: always()
+        run: |
+          echo "Deleting temporary ACR..."
+          ACR_NAME="${{ needs.terraform.outputs.acr_name }}"
+          RG_NAME="${{ needs.terraform.outputs.resource_group_name }}"
+
+          if [ -z "$ACR_NAME" ]; then
+            echo "ERROR: ACR name is empty. Skipping delete."
+            exit 0
+          fi
+
+          echo "ACR = $ACR_NAME"
+          echo "RG  = $RG_NAME"
+
+          az acr delete --name "$ACR_NAME" --resource-group "$RG_NAME" --yes
+          echo "ACR deleted successfully"
