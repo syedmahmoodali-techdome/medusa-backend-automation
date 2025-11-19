@@ -197,10 +197,10 @@ jobs:
           az webapp config container set \
             --name "$APP" \
             --resource-group "$RG" \
-            --docker-custom-image-name "$IMAGE" \
-            --docker-registry-server-url "https://${{ needs.terraform.outputs.acr_login_server }}" \
-            --docker-registry-server-user "$ACR_USER" \
-            --docker-registry-server-password "$ACR_PASS"
+            --container-image-name "$IMAGE" \
+            --container-registry-url "https://${{ needs.terraform.outputs.acr_login_server }}" \
+            --container-registry-user "$ACR_USER" \
+            --container-registry-password "$ACR_PASS"
 
           # Build DATABASE_URL: postgres://user:pass@host:port/dbname?sslmode=require
           DB_HOST="${{ needs.terraform.outputs.db_host }}"
@@ -217,7 +217,7 @@ jobs:
             "NODE_ENV=production"
             # Provide secrets via repo secrets:
             "JWT_SECRET=${{ secrets.JWT_SECRET }}"
-            "COOKIE_SECRET=${{ secrets.COOKIE_SECRET }}"
+            #"COOKIE_SECRET=${{ secrets.COOKIE_SECRET }}"
             # optional extras - add these secrets if you use redis or cors, otherwise remove
             "REDIS_URL=${{ secrets.REDIS_URL }}"
             "PUBLIC_BACKEND_URL=https://${{ needs.terraform.outputs.cms_url }}"
