@@ -19,6 +19,9 @@ variable "service_plan_id" {
   description = "App Service Plan ID"
 }
 
+variable "database_url" {}
+variable "cookie_secret" {}
+
 # Container image placeholders (pipeline will set actual image)
 variable "image_name" {
   type        = string
