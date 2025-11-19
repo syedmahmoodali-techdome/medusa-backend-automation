@@ -195,7 +195,7 @@ jobs:
           az acr login --name "${{ needs.terraform.outputs.acr_name }}"
 
       - name: Build Docker image
-        working-directory: ecommpoc/my-strapi-project
+        working-directory: ecomm-terraform/my-medusa-store
         run: |
           SHORT_SHA=${GITHUB_SHA::7}
           ACR_SERVER="${{ needs.terraform.outputs.acr_login_server }}"
@@ -203,6 +203,7 @@ jobs:
           echo "Building image: $IMAGE"
           docker build -t "$IMAGE" .
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
 
       - name: Push Docker image to ACR
         run: docker push "$IMAGE"
