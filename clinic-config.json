@@ -22,7 +22,8 @@
   "database": {
     "name": "strapi-db-ali",
     "username": "strapi_admin",
-    "password": "DbPass@123"
+    "password": "DbPass@123",
+    "database_url"  = "postgres://username:password@host:5432/db?sslmode=require"
   },
   "azure": {
     "resource_group_prefix": "wizlo",
