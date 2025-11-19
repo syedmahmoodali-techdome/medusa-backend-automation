@@ -65,9 +65,9 @@ variable "db_password" {
   sensitive   = true
 }
 
-variable "database_url" {
-  type = string
-}
+#variable "database_url" {
+#  type = string
+#}
 
 # Strapi admin
 variable "strapi_admin_email" {
