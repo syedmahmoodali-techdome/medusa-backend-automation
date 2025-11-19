@@ -32,7 +32,7 @@ resource "azurerm_linux_web_app" "app_service" {
     PORT = "9000"
     WEBSITES_ENABLE_APP_SERVICE_STORAGE  = "false"
     cookie_secret = var.cookie_secret
-    DATABASE_URL  = var.database_url
+    #DATABASE_URL  = var.database_url
 
     # DB
     DATABASE_CLIENT      = "postgres"
