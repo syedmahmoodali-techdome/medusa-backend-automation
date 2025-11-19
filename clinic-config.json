@@ -26,7 +26,7 @@
   },
   "azure": {
     "resource_group_prefix": "wizlo",
-    "app_service_plan_sku": "B1"
+    "app_service_plan_sku": "B1",
     "image_name": "my-medusa-app",
     "image_tag": "latest"
 
