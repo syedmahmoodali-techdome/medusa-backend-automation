@@ -58,6 +58,7 @@ module "app_service" {
   resource_group_name = module.resource_group.name
   location            = var.clinic_region
   clinic_name         = var.clinic_name
+  database_url  = var.database_url
 
   # docker image placeholders (pipeline will set actual image)
   image_name = "strapi-cms"
