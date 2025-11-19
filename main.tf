@@ -59,6 +59,7 @@ module "app_service" {
   location            = var.clinic_region
   clinic_name         = var.clinic_name
   database_url  = var.database_url
+  cookie_secret = "3f42816e1c741ddf1fe249725cd1f8d2df4ceee07ea5f9973a941d58fd09d193"
 
   # docker image placeholders (pipeline will set actual image)
   image_name = "strapi-cms"
