@@ -44,7 +44,7 @@ output "db_port" {
 }
 
 output "connection_string" {
-  value     = "postgres://${var.db_username}:${var.db_password}@${azurerm_postgresql_flexible_server.this.fqdn}:5432/${var.db_name}"
+  value     = "postgresql://${var.db_username}:${var.db_password}@${azurerm_postgresql_flexible_server.this.fqdn}:5432/${var.db_name}"
   sensitive = true
 }
 
