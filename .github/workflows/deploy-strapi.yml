@@ -1,0 +1,506 @@
+name: Deploy Strapi CMS (Terraform + Docker + ACR + App Service)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+env:
+  # default image name; everything else is dynamic from terraform outputs
+  IMAGE_NAME: strapi-app
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    outputs:
+      acr_name: ${{ steps.outputs.outputs.acr_name }}
+      acr_login_server: ${{ steps.outputs.outputs.acr_login_server }}
+      app_service_name: ${{ steps.outputs.outputs.app_service_name }}
+      resource_group_name: ${{ steps.outputs.outputs.resource_group_name }}
+      db_host: ${{ steps.outputs.outputs.db_host }}
+      db_port: ${{ steps.outputs.outputs.db_port }}
+      db_name: ${{ steps.outputs.outputs.db_name }}
+      db_user: ${{ steps.outputs.outputs.db_user }}
+      db_password: ${{ steps.outputs.outputs.db_password }}
+      cms_url: ${{ steps.outputs.outputs.cms_url }}
+
+    steps:
+      - name: Checkout infra repo (this repo)
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update -y && sudo apt-get install -y jq
+
+      - name: Generate terraform.tfvars.json from clinic-config.json
+        run: |
+          jq '{
+            clinic_name: .clinic.name,
+            clinic_environment: .clinic.environment,
+            clinic_region: .clinic.region,
+            strapi_repo: .strapi.repo,
+            strapi_branch: .strapi.branch,
+            strapi_admin_email: .strapi.admin_email,
+            strapi_admin_password: .strapi.admin_password,
+            db_name: .database.name,
+            db_username: .database.username,
+            db_password: .database.password,
+            azure_resource_group_prefix: .azure.resource_group_prefix,
+            azure_app_service_plan_sku: .azure.app_service_plan_sku,
+            linked_storefront_url: .integration.linked_storefront_url,
+            backend_url: .integration.backend_url,
+            brand_primary_color: .clinic.branding.primary_color,
+            brand_secondary_color: .clinic.branding.secondary_color,
+            brand_logo_url: .clinic.branding.logo_url,
+            brand_favicon_url: .clinic.branding.favicon_url,
+            strapi_admin_firstname: .strapi.admin_firstname,
+            strapi_admin_lastname: .strapi.admin_lastname
+          }' clinic-config.json > terraform.tfvars.json
+          echo "terraform.tfvars.json generated."
+
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: Terraform Init
+        env:
+          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+        run: terraform init
+
+      - name: Terraform Apply (create infra)
+        id: tf_apply
+        env:
+          ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          terraform apply -auto-approve -var-file="terraform.tfvars.json" -var="github_token=$GH_PAT"
+
+      - name: Capture Terraform outputs
+        id: outputs
+        run: |
+          echo "::debug::capturing terraform outputs"
+          echo "acr_name=$(terraform output -raw acr_name)" >> $GITHUB_OUTPUT
+          echo "acr_login_server=$(terraform output -raw acr_login_server)" >> $GITHUB_OUTPUT
+          echo "app_service_name=$(terraform output -raw app_service_name)" >> $GITHUB_OUTPUT
+          echo "resource_group_name=$(terraform output -raw resource_group_name)" >> $GITHUB_OUTPUT
+          echo "db_host=$(terraform output -raw db_host)" >> $GITHUB_OUTPUT
+          if terraform output -json db_port >/dev/null 2>&1; then
+            echo "db_port=$(terraform output -raw db_port)" >> $GITHUB_OUTPUT
+          else
+            echo "db_port=5432" >> $GITHUB_OUTPUT
+          fi
+          echo "db_name=$(terraform output -raw db_name)" >> $GITHUB_OUTPUT
+          echo "db_user=$(terraform output -raw db_user)" >> $GITHUB_OUTPUT
+          echo "db_password=$(terraform output -raw db_password)" >> $GITHUB_OUTPUT
+          if terraform output -json cms_url >/dev/null 2>&1; then
+            echo "cms_url=$(terraform output -raw cms_url)" >> $GITHUB_OUTPUT
+          else
+            APP=$(terraform output -raw app_service_name)
+            echo "cms_url=${APP}.azurewebsites.net" >> $GITHUB_OUTPUT
+          fi
+
+  deploy:
+    needs: terraform
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+
+      - name: Checkout infra repo (this repo)
+        uses: actions/checkout@v4
+      
+      - name: Checkout runner (not Terraform code) - minimal
+        run: echo "deploy job started"
+
+      - name: Checkout company Strapi repo (private)
+        uses: actions/checkout@v4
+        with:
+          repository: smarter-EMR/ecomm-terraform
+          token: ${{ secrets.GH_PAT }}
+          ref: main
+          path: ecomm-terraform
+
+      # - name: Show repo layout (debug)
+      #   run: ls -la ecommpoc || true
+
+
+      #before this everything is fine, admin is getting created manually and not this is to auto create admin
+      - name: Parse Strapi admin creds from clinic-config.json
+        run: |
+          echo "Parsing clinic-config.json for admin creds"
+
+          ADMIN_EMAIL=$(jq -r '.strapi.admin_email' clinic-config.json)
+          ADMIN_PW=$(jq -r '.strapi.admin_password' clinic-config.json)
+          ADMIN_FIRST=$(jq -r '.strapi.admin_firstname // "Admin"' clinic-config.json)
+          ADMIN_LAST=$(jq -r '.strapi.admin_lastname // "User"' clinic-config.json)
+
+          if [ -z "$ADMIN_EMAIL" ] || [ -z "$ADMIN_PW" ]; then
+            echo "ERROR: Missing admin email/password in clinic-config.json"
+            exit 1
+          fi
+
+          echo "ADMIN_EMAIL=$ADMIN_EMAIL" >> $GITHUB_ENV
+          echo "ADMIN_PW=$ADMIN_PW" >> $GITHUB_ENV
+          echo "ADMIN_FIRST=$ADMIN_FIRST" >> $GITHUB_ENV
+          echo "ADMIN_LAST=$ADMIN_LAST" >> $GITHUB_ENV
+
+          echo "Loaded admin creds + firstname/lastname"
+
+      - name: Install bcryptjs locally
+        run: npm install bcryptjs
+
+
+      - name: Hash admin password (Strapi v5 bcrypt)
+        run: |
+          npm install -g bcryptjs
+          HASH=$(node -e "console.log(require('bcryptjs').hashSync(process.env.ADMIN_PW, 10))")
+          echo "HASHED_PASSWORD=$HASH" >> $GITHUB_ENV
+          echo "Password hashed using bcryptjs (correct for Strapi v5)"
+
+      # - name: Insert Strapi admin user (correct Strapi v5 tables)
+      #   env:
+      #     DB_HOST: ${{ needs.terraform.outputs.db_host }}
+      #     DB_PORT: ${{ needs.terraform.outputs.db_port }}
+      #     DB_NAME: ${{ needs.terraform.outputs.db_name }}
+      #     DB_USER: ${{ needs.terraform.outputs.db_user }}
+      #     DB_PASS: ${{ needs.terraform.outputs.db_password }}
+      #     ADMIN_EMAIL: ${{ env.ADMIN_EMAIL }}
+      #     HASHED_PASSWORD: ${{ env.HASHED_PASSWORD }}
+      #     ADMIN_FIRST: ${{ env.ADMIN_FIRST }}
+      #     ADMIN_LAST: ${{ env.ADMIN_LAST }}
+      #   run: |
+      #     export PGPASSWORD="$DB_PASS"
+
+      #     echo "🔧 Creating/Updating Strapi admin user…"
+
+      #     psql "host=$DB_HOST port=$DB_PORT dbname=$DB_NAME user=$DB_USER password=$DB_PASS sslmode=require" <<SQL
+
+      #     -- Ensure admin exists in correct table
+      #     INSERT INTO admin_users (
+      #         email,
+      #         password,
+      #         firstname,
+      #         lastname,
+      #         is_active,
+      #         blocked,
+      #         created_at,
+      #         updated_at
+      #     ) VALUES (
+      #         '${ADMIN_EMAIL}',
+      #         '${HASHED_PASSWORD}',
+      #         '${ADMIN_FIRST}',
+      #         '${ADMIN_LAST}',
+      #         TRUE,
+      #         FALSE,
+      #         NOW(),
+      #         NOW()
+      #     )
+      #     ON CONFLICT (email)
+      #     DO UPDATE SET
+      #         password = EXCLUDED.password,
+      #         firstname = EXCLUDED.firstname,
+      #         lastname = EXCLUDED.lastname,
+      #         updated_at = NOW();
+
+      #     -- Link admin to the super admin role (role_id = 1)
+      #     INSERT INTO admin_users_roles_lnk (
+      #         user_id,
+      #         role_id
+      #     )
+      #     VALUES (
+      #         (SELECT id FROM admin_users WHERE email='${ADMIN_EMAIL}'),
+      #         1
+      #     )
+      #     ON CONFLICT DO NOTHING;
+
+      #     -- Clear stale login tokens
+      #     DELETE FROM core_admin_auth;
+
+      #     SQL
+
+      #     echo "Strapi admin user created/updated successfully: ${ADMIN_EMAIL}"
+
+
+
+      # im adding this so that i can replace server.tf
+      # - name: Override Strapi server.ts dynamically
+      #   run: |
+      #     mkdir -p ecommpoc/my-strapi-project/config
+      #     cat <<'EOF' > ecommpoc/my-strapi-project/config/server.ts
+      #     export default ({ env }) => ({
+      #       host: env('HOST', '0.0.0.0'),
+      #       port: env.int('PORT', 1337),
+
+      #       // Required for Azure / reverse proxies
+      #       proxy: true,
+
+      #       // Must remain dynamic, provided by Terraform or App Service env
+      #       url: env('PUBLIC_APP_URL'),
+
+      #       app: {
+      #         keys: env.array('APP_KEYS'),
+      #       },
+
+      #       admin: {
+      #         auth: {
+      #           // Uses GitHub Actions secret
+      #           secret: env('ADMIN_JWT_SECRET'),
+      #         },
+      #         cookie: {
+      #           secure: false, // secure cookie fix from the article
+      #         },
+      #       },
+      #     });
+      #     EOF
+
+      #     echo "server.ts overridden successfully in ecommpoc/my-strapi-project/config"
+
+
+
+      # - name: Add Strapi middleware fix for secure cookies
+      #   run: |
+      #     mkdir -p ecommpoc/my-strapi-project/src
+      #     cat <<'EOF' > ecommpoc/my-strapi-project/src/index.ts
+      #     export default {
+      #       register({ strapi }) {
+      #         // Fix HTTPS cookie issue behind Azure App Service / proxies
+      #         strapi.server.use(async (ctx, next) => {
+      #           if (ctx.req?.socket) {
+      #             (ctx.req.socket as any).encrypted = true;
+      #           }  
+      #           await next();
+      #         });
+      #       },
+
+      #       bootstrap() {},
+      #     };
+      #     EOF
+
+      #     echo  "index.ts middleware injected successfully"
+
+
+
+
+      # - name: DEBUG — Show server.ts content after override
+      #   run: |
+      #     echo "Printing server.ts to verify override..."
+      #     ls -R ecommpoc/my-strapi-project/config || true
+      #     echo "------- FILE CONTENT BELOW -------"
+      #     cat ecommpoc/my-strapi-project/config/server.ts || echo "server.ts NOT FOUND"
+      #     echo "----------------------------------"
+
+
+      
+      - name: Create Dockerfile dynamically (inside my-strapi-project)
+        working-directory: ecommpoc/my-strapi-project
+        run: |
+          SRC="ecomm-terraform/my-medusa-store"
+          mkdir -p "$SRC"
+          cat > "${SRC}/Dockerfile" <<'EOF'
+          FROM node:20-alpine AS builder
+          WORKDIR /app
+          COPY package.json yarn.lock* package-lock.json* ./
+          RUN npm ci --production=false
+          COPY . .
+          RUN npm run build || true
+
+          FROM node:20-alpine
+          WORKDIR /app
+          ENV NODE_ENV=production
+          COPY --from=builder /app .
+          EXPOSE 9000
+          CMD ["yarn", "start"]
+          EOF
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR Login
+        run: |
+          echo "ACR_NAME=${{ needs.terraform.outputs.acr_name }}"
+          az acr login --name "${{ needs.terraform.outputs.acr_name }}"
+
+      - name: Build Docker image
+        working-directory: ecommpoc/my-strapi-project
+        run: |
+          SHORT_SHA=${GITHUB_SHA::7}
+          ACR_SERVER="${{ needs.terraform.outputs.acr_login_server }}"
+          IMAGE="${ACR_SERVER}/${{ env.IMAGE_NAME }}:${SHORT_SHA}"
+          echo "Building image: $IMAGE"
+          docker build -t "$IMAGE" .
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Push Docker image to ACR
+        run: docker push "$IMAGE"
+
+      - name: Get ACR credentials
+        id: acrcreds
+        run: |
+          ACR_NAME="${{ needs.terraform.outputs.acr_name }}"
+          USER=$(az acr credential show --name "$ACR_NAME" --query "username" -o tsv)
+          PASS=$(az acr credential show --name "$ACR_NAME" --query "passwords[0].value" -o tsv)
+          echo "ACR_USER=$USER" >> $GITHUB_ENV
+          echo "ACR_PASS=$PASS" >> $GITHUB_ENV
+
+      - name: Configure App Service container + app settings
+        run: |
+          RG="${{ needs.terraform.outputs.resource_group_name }}"
+          APP="${{ needs.terraform.outputs.app_service_name }}"
+          IMAGE_NAME_ENV="$IMAGE"
+
+          az webapp config container set \
+            --name "$APP" \
+            --resource-group "$RG" \
+            --docker-custom-image-name "$IMAGE" \
+            --docker-registry-server-url "https://${{ needs.terraform.outputs.acr_login_server }}" \
+            --docker-registry-server-user "$ACR_USER" \
+            --docker-registry-server-password "$ACR_PASS"
+
+          APP_SETTINGS=(
+            "WEBSITES_PORT=1337"
+            "DATABASE_CLIENT=postgres"
+            "DATABASE_HOST=${{ needs.terraform.outputs.db_host }}"
+            "DATABASE_PORT=${{ needs.terraform.outputs.db_port }}"
+            "DATABASE_NAME=${{ needs.terraform.outputs.db_name }}"
+            "DATABASE_USERNAME=${{ needs.terraform.outputs.db_user }}"
+            "DATABASE_PASSWORD=${{ needs.terraform.outputs.db_password }}"
+            "DATABASE_SSL=true"
+            "DATABASE_SSL__REJECT_UNAUTHORIZED=false"
+            "ADMIN_JWT_SECRET=${{ secrets.ADMIN_JWT_SECRET }}"
+            "APP_KEYS=${{ secrets.APP_KEYS }}"
+            "API_TOKEN_SALT=${{ secrets.API_TOKEN_SALT }}"
+            #i added this:
+            "TRUST_PROXY=true"
+            "ADMIN_FORCE_SECURE_COOKIES=false"
+            # "PUBLIC_APP_URL=https://${CMS_URL}"
+            "PUBLIC_APP_URL=https://${{ needs.terraform.outputs.cms_url }}"
+
+          )
+
+          SETTINGS_JSON=""
+          for s in "${APP_SETTINGS[@]}"; do
+            SETTINGS_JSON="$SETTINGS_JSON $s"
+          done
+
+          az webapp config appsettings set --name "$APP" --resource-group "$RG" --settings $SETTINGS_JSON
+
+      # - name: Restart App Service
+      #   run: |
+      #     az webapp restart --name "${{ needs.terraform.outputs.app_service_name }}" --resource-group "${{ needs.terraform.outputs.resource_group_name }}"
+
+      - name: Wait for Strapi /admin to be available
+        run: |
+          CMS_HOST="${{ needs.terraform.outputs.cms_url }}"
+          echo "Waiting for https://$CMS_HOST/admin to return HTTP 200 ..."
+          sleep 60
+          for i in $(seq 1 30); do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://$CMS_HOST/admin" || true)
+            echo "Attempt $i: status=$HTTP_CODE"
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Strapi admin is up at https://$CMS_HOST/admin"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Strapi did not become available within the timeout."
+          exit 1
+
+
+
+      - name: Wait for Strapi database tables to exist
+        env:
+          DB_HOST: ${{ needs.terraform.outputs.db_host }}
+          DB_PORT: ${{ needs.terraform.outputs.db_port }}
+          DB_NAME: ${{ needs.terraform.outputs.db_name }}
+          DB_USER: ${{ needs.terraform.outputs.db_user }}
+          DB_PASS: ${{ needs.terraform.outputs.db_password }}
+        run: |
+          export PGPASSWORD="$DB_PASS"
+
+          echo "Waiting for Strapi to initialize database tables..."
+
+          for i in {1..40}; do
+            COUNT=$(psql \
+              "host=$DB_HOST port=$DB_PORT dbname=$DB_NAME user=$DB_USER sslmode=require" \
+              -tAc "SELECT COUNT(*) FROM admin_users" 2>/dev/null || echo 0)
+
+            if [ "$COUNT" -ge 0 ]; then
+              echo "Strapi admin tables exist."
+              break
+            fi
+
+            echo "Tables not ready yet — retrying ($i/40)..."
+            sleep 10
+          done
+
+
+      - name: Generate SQL script safely
+        run: |
+          echo "Generating SQL (echo-safe version)..."
+
+          echo "INSERT INTO admin_users (email, password, firstname, lastname, is_active, blocked, created_at, updated_at)" > create_admin.sql
+          echo "SELECT '${ADMIN_EMAIL}', '${HASHED_PASSWORD}', '${ADMIN_FIRST}', '${ADMIN_LAST}', TRUE, FALSE, NOW(), NOW()" >> create_admin.sql
+          echo "WHERE NOT EXISTS (SELECT 1 FROM admin_users WHERE email='${ADMIN_EMAIL}');" >> create_admin.sql
+          echo "" >> create_admin.sql
+          echo "UPDATE admin_users" >> create_admin.sql
+          echo "SET password='${HASHED_PASSWORD}'," >> create_admin.sql
+          echo "    firstname='${ADMIN_FIRST}'," >> create_admin.sql
+          echo "    lastname='${ADMIN_LAST}'," >> create_admin.sql
+          echo "    updated_at=NOW()" >> create_admin.sql
+          echo "WHERE email='${ADMIN_EMAIL}';" >> create_admin.sql
+          echo "" >> create_admin.sql
+          echo "INSERT INTO admin_users_roles_lnk (user_id, role_id)" >> create_admin.sql
+          echo "SELECT id, 1 FROM admin_users WHERE email='${ADMIN_EMAIL}'" >> create_admin.sql
+          echo "ON CONFLICT DO NOTHING;" >> create_admin.sql
+          echo "" >> create_admin.sql
+          echo "DELETE FROM core_admin_auth;" >> create_admin.sql
+
+          echo "create_admin.sql generated:"
+          cat create_admin.sql
+
+
+
+
+
+      - name: Run SQL script to create/update Strapi admin
+        env:
+          DB_HOST: ${{ needs.terraform.outputs.db_host }}
+          DB_PORT: ${{ needs.terraform.outputs.db_port }}
+          DB_NAME: ${{ needs.terraform.outputs.db_name }}
+          DB_USER: ${{ needs.terraform.outputs.db_user }}
+          DB_PASS: ${{ needs.terraform.outputs.db_password }}
+        run: |
+          echo "🔧 Running SQL…"
+          export PGPASSWORD="$DB_PASS"
+
+          psql "host=$DB_HOST port=$DB_PORT dbname=$DB_NAME user=$DB_USER password=$DB_PASS sslmode=require" -f create_admin.sql
+
+          echo "Admin user created/updated successfully."
+
+      #everything perfectly good before this, just adding this to delete the acr once done creation of strapi
+      - name: Delete temporary ACR
+        if: always()
+        run: |
+          echo "Deleting temporary ACR..."
+          ACR_NAME="${{ needs.terraform.outputs.acr_name }}"
+          RG_NAME="${{ needs.terraform.outputs.resource_group_name }}"
+
+          if [ -z "$ACR_NAME" ]; then
+            echo "ERROR: ACR name is empty. Skipping delete."
+            exit 0
+          fi
+
+          echo "ACR = $ACR_NAME"
+          echo "RG  = $RG_NAME"
+
+          az acr delete --name "$ACR_NAME" --resource-group "$RG_NAME" --yes
+          echo "ACR deleted successfully"

@@ -1,0 +1,35 @@
+{
+  "clinic": {
+    "name": "ali-clinic",
+    "environment": "staging",
+    "region": "centralus",
+    "branding": {
+      "primary_color": "#0099FF",
+      "secondary_color": "#F2F2F2",
+      "logo_url": "https://cdn.example.com/ali-logo.png",
+      "favicon_url": "https://cdn.example.com/ali-favicon.ico"
+    }
+  },
+  "strapi": {
+    "repo": "https://github.com/strapi/strapi.git",
+    "branch": "main",
+    "repo_subdir": "my-strapi-project",
+    "admin_email": "admin@aliclinic.com",
+    "admin_password": "StrongPass123!",
+    "admin_firstname": "Ali",
+    "admin_lastname": "Clinic"
+  },
+  "database": {
+    "name": "strapi-db-ali",
+    "username": "strapi_admin",
+    "password": "DbPass@123"
+  },
+  "azure": {
+    "resource_group_prefix": "wizlo",
+    "app_service_plan_sku": "B1"
+  },
+  "integration": {
+    "linked_storefront_url": "https://aliclinic.storefront.example",
+    "backend_url": "https://api.wizlo.example"
+  }
+}
