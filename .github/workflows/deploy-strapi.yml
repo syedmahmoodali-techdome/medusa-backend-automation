@@ -187,12 +187,15 @@ jobs:
           echo "ACR_USER=$USER" >> $GITHUB_ENV
           echo "ACR_PASS=$PASS" >> $GITHUB_ENV
 
+
+
       - name: Configure App Service container + app settings
         run: |
           RG="${{ needs.terraform.outputs.resource_group_name }}"
           APP="${{ needs.terraform.outputs.app_service_name }}"
           IMAGE_NAME_ENV="$IMAGE"
 
+          # Configure container with updated flags
           az webapp config container set \
             --name "$APP" \
             --resource-group "$RG" \
@@ -201,7 +204,7 @@ jobs:
             --container-registry-user "$ACR_USER" \
             --container-registry-password "$ACR_PASS"
 
-          # Build DATABASE_URL: postgres://user:pass@host:port/dbname?sslmode=require
+          # Build DATABASE_URL dynamically from Terraform outputs
           DB_HOST="${{ needs.terraform.outputs.db_host }}"
           DB_PORT="${{ needs.terraform.outputs.db_port }}"
           DB_NAME="${{ needs.terraform.outputs.db_name }}"
@@ -210,24 +213,64 @@ jobs:
 
           DATABASE_URL="postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
 
+          # App settings array
           APP_SETTINGS=(
             "WEBSITES_PORT=9000"
             "DATABASE_URL=${DATABASE_URL}"
             "NODE_ENV=production"
-            # Provide secrets via repo secrets:
             "JWT_SECRET=${{ secrets.JWT_SECRET }}"
-            #"COOKIE_SECRET=${{ secrets.COOKIE_SECRET }}"
-            # optional extras - add these secrets if you use redis or cors, otherwise remove
+            "COOKIE_SECRET=${{ secrets.COOKIE_SECRET }}"
             "REDIS_URL=${{ secrets.REDIS_URL }}"
             "PUBLIC_BACKEND_URL=https://${{ needs.terraform.outputs.cms_url }}"
           )
 
-          SETTINGS_JSON=""
-          for s in "${APP_SETTINGS[@]}"; do
-            SETTINGS_JSON="$SETTINGS_JSON $s"
-          done
+          # Pass array directly to Azure CLI (preserves special characters)
+          az webapp config appsettings set --name "$APP" --resource-group "$RG" --settings "${APP_SETTINGS[@]}"
 
-          az webapp config appsettings set --name "$APP" --resource-group "$RG" --settings $SETTINGS_JSON
+
+      
+      
+      # - name: Configure App Service container + app settings
+      #   run: |
+      #     RG="${{ needs.terraform.outputs.resource_group_name }}"
+      #     APP="${{ needs.terraform.outputs.app_service_name }}"
+      #     IMAGE_NAME_ENV="$IMAGE"
+
+      #     az webapp config container set \
+      #       --name "$APP" \
+      #       --resource-group "$RG" \
+      #       --container-image-name "$IMAGE" \
+      #       --container-registry-url "https://${{ needs.terraform.outputs.acr_login_server }}" \
+      #       --container-registry-user "$ACR_USER" \
+      #       --container-registry-password "$ACR_PASS"
+
+      #     # Build DATABASE_URL: postgres://user:pass@host:port/dbname?sslmode=require
+      #     DB_HOST="${{ needs.terraform.outputs.db_host }}"
+      #     DB_PORT="${{ needs.terraform.outputs.db_port }}"
+      #     DB_NAME="${{ needs.terraform.outputs.db_name }}"
+      #     DB_USER="${{ needs.terraform.outputs.db_user }}"
+      #     DB_PASS="${{ needs.terraform.outputs.db_password }}"
+
+      #     DATABASE_URL="postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
+
+      #     APP_SETTINGS=(
+      #       "WEBSITES_PORT=9000"
+      #       "DATABASE_URL=${DATABASE_URL}"
+      #       "NODE_ENV=production"
+      #       # Provide secrets via repo secrets:
+      #       "JWT_SECRET=${{ secrets.JWT_SECRET }}"
+      #       #"COOKIE_SECRET=${{ secrets.COOKIE_SECRET }}"
+      #       # optional extras - add these secrets if you use redis or cors, otherwise remove
+      #       "REDIS_URL=${{ secrets.REDIS_URL }}"
+      #       "PUBLIC_BACKEND_URL=https://${{ needs.terraform.outputs.cms_url }}"
+      #     )
+
+      #     SETTINGS_JSON=""
+      #     for s in "${APP_SETTINGS[@]}"; do
+      #       SETTINGS_JSON="$SETTINGS_JSON $s"
+      #     done
+
+      #     az webapp config appsettings set --name "$APP" --resource-group "$RG" --settings $SETTINGS_JSON
 
       - name: Wait for Medusa to respond
         run: |
