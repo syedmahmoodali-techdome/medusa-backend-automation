@@ -215,12 +215,8 @@ jobs:
 
           # App settings array
           APP_SETTINGS=(
-            "WEBSITES_PORT=9000"
+            "PORT=9000"
             "DATABASE_URL=${DATABASE_URL}"
-            "NODE_ENV=production"
-            "JWT_SECRET=${{ secrets.JWT_SECRET }}"
-            "COOKIE_SECRET=${{ secrets.COOKIE_SECRET }}"
-            "REDIS_URL=${{ secrets.REDIS_URL }}"
             "PUBLIC_BACKEND_URL=https://${{ needs.terraform.outputs.cms_url }}"
           )
 
