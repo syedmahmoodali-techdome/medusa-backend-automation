@@ -133,23 +133,24 @@ jobs:
           # ---- Builder Image ----
           FROM node:20-alpine
 
-          # Set working directory for Medusa
-          WORKDIR /server
+          WORKDIR /app
 
-          # Copy package files
+          # Install dependencies
           COPY package.json package-lock.json ./
-
-          # IMPORTANT — Medusa requires this to avoid peer dependency conflicts
           RUN npm install --legacy-peer-deps
 
-          # Copy entire project
+          # Copy all files
           COPY . .
 
-          # Expose Medusa default port
+          # Build Medusa v2
+          RUN npm run build
+
+          # Medusa default port
           EXPOSE 9000
 
-          # Start Medusa using start.sh
-          CMD ["medusa", "start"]
+          # Start server
+          CMD ["npm", "run", "start"]
+
 
 
           DOCKERFILE
@@ -219,7 +220,10 @@ jobs:
             "WEBSITES_PORT": "9000",
             "NODE_ENV": "production",
             "DATABASE_URL": "${DATABASE_URL}",
-            "PUBLIC_BACKEND_URL": "https://${{ needs.terraform.outputs.cms_url }}"
+            "PUBLIC_BACKEND_URL": "https://${{ needs.terraform.outputs.cms_url }}",
+            STORE_CORS": "*",
+            "ADMIN_CORS": "*",
+            "AUTH_CORS": "*"
           }
           EOF
 
