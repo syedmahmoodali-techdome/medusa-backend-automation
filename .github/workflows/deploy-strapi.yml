@@ -192,7 +192,7 @@ jobs:
           EXPOSE 9000
 
           # Start without running migration-scripts again
-          CMD ["yarn", "start"]
+          CMD ["sh", "-c", "medusa db:migrate && medusa start"]
 
           
           DOCKERFILE
