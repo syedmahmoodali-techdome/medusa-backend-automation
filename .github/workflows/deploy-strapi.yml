@@ -193,9 +193,7 @@ jobs:
         run: |
           RG="${{ needs.terraform.outputs.resource_group_name }}"
           APP="${{ needs.terraform.outputs.app_service_name }}"
-          IMAGE_NAME_ENV="$IMAGE"
 
-          # Configure container with updated flags
           az webapp config container set \
             --name "$APP" \
             --resource-group "$RG" \
@@ -204,24 +202,32 @@ jobs:
             --container-registry-user "$ACR_USER" \
             --container-registry-password "$ACR_PASS"
 
-          # Build DATABASE_URL dynamically from Terraform outputs
-          DB_HOST="${{ needs.terraform.outputs.db_host }}"
-          DB_PORT="${{ needs.terraform.outputs.db_port }}"
-          DB_NAME="${{ needs.terraform.outputs.db_name }}"
-          DB_USER="${{ needs.terraform.outputs.db_user }}"
-          DB_PASS="${{ needs.terraform.outputs.db_password }}"
+            # Build DB URL
+            DB_HOST="${{ needs.terraform.outputs.db_host }}"
+            DB_PORT="${{ needs.terraform.outputs.db_port }}"
+            DB_NAME="${{ needs.terraform.outputs.db_name }}"
+            DB_USER="${{ needs.terraform.outputs.db_user }}"
+            DB_PASS="${{ needs.terraform.outputs.db_password }}"
 
-          DATABASE_URL="postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
+            DATABASE_URL="postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
 
-          # App settings array
-          APP_SETTINGS=(
-            "PORT=9000"
-            "DATABASE_URL=${DATABASE_URL}"
-            "PUBLIC_BACKEND_URL=https://${{ needs.terraform.outputs.cms_url }}"
-          )
+            cat > appsettings.json <<EOF
+            {
+              "PORT": "9000",
+              "WEBSITES_PORT": "9000",
+              "NODE_ENV": "production",
+              "DATABASE_URL": "${DATABASE_URL}",
+              "PUBLIC_BACKEND_URL": "https://${{ needs.terraform.outputs.cms_url }}"
+            }
+            EOF
 
-          # Pass array directly to Azure CLI (preserves special characters)
-          az webapp config appsettings set --name "$APP" --resource-group "$RG" --settings "${APP_SETTINGS[@]}"
+            echo "Generated appsettings.json:"
+            cat appsettings.json
+
+            az webapp config appsettings set \
+              --name "$APP" \
+              --resource-group "$RG" \
+              --settings @appsettings.json
 
 
       
