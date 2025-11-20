@@ -20,11 +20,6 @@ resource "azurerm_linux_web_app" "app_service" {
 
   site_config {
     always_on = true
-    # NOTE: we do NOT set linux_fx_version or container_registry here so pipeline (az cli) can manage the image
-    #application_stack {
-    #  docker_image_name   = "${var.image_name}:${var.image_tag}"
-    #  docker_registry_url = "https://${azurerm_container_registry.acr.login_server}"
-    #}
   }
 
   app_settings = {
