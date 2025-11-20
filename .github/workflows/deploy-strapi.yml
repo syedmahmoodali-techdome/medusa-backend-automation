@@ -159,32 +159,41 @@ jobs:
         run: |
           cat <<'DOCKERFILE' > Dockerfile
 
-          FROM node:20-alpine AS builder
-
+          # -------------------------------
+          # BASE IMAGE
+          # -------------------------------
+          FROM node:18-alpine AS base
           WORKDIR /app
 
+          # Install dependencies
           COPY package.json yarn.lock ./
           RUN yarn install --frozen-lockfile
 
+          # Copy source
           COPY . .
+
+          # Create empty instrumentation file so Medusa won't crash
+          RUN echo "module.exports = {}" > instrumentation.js
+
+          # Build the project
           RUN yarn build
 
-          # ===============================
-          # PRODUCTION IMAGE
-          # ===============================
-          FROM node:20-alpine
-
+          # -------------------------------
+          # RUNTIME
+          # -------------------------------
+          FROM node:18-alpine
           WORKDIR /app
 
-          # Install Medusa CLI
-          RUN yarn global add @medusajs/cli
+          COPY --from=base /app ./
 
-          COPY --from=builder /app /app
+          ENV NODE_ENV=production
 
+          # Expose port
           EXPOSE 9000
 
-          # Run entrypoint AFTER Azure env vars load
-          CMD ["sh", "-c", "echo Starting Medusa... && medusa db:migrate && medusa start"]
+          # Start without running migration-scripts again
+          CMD ["yarn", "start"]
+
           
           DOCKERFILE
           echo "Dockerfile created in ecomm-terraform/my-medusa-store" 
