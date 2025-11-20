@@ -126,6 +126,34 @@ jobs:
           path: ecomm-terraform
 
 
+      #since error persists, lets try and override config
+      - name: Override medusa-config.ts with JS version
+        working-directory: ecomm-terraform/my-medusa-store
+        run: |
+          cat <<'EOF' > medusa-config.js
+          import { loadEnv } from "@medusajs/framework/utils"
+
+          // explicitly load environment variables
+          loadEnv(process.env.NODE_ENV || "production", process.cwd())
+
+          export default {
+            projectConfig: {
+              databaseUrl: process.env.DATABASE_URL,
+              http: {
+                storeCors: process.env.STORE_CORS || "*",
+                adminCors: process.env.ADMIN_CORS || "*",
+                authCors: process.env.AUTH_CORS || "*",
+                jwtSecret: process.env.JWT_SECRET || "supersecret",
+                cookieSecret: process.env.COOKIE_SECRET || "supersecret",
+              },
+            },
+          }
+          EOF
+
+          echo "✔ medusa-config.js override created!"
+
+
+      #docker file for overriding time
       - name: Create Dockerfile dynamically (inside my-medusa-store)
         working-directory: ecomm-terraform/my-medusa-store
         run: |
@@ -134,39 +162,26 @@ jobs:
 
           WORKDIR /app
 
-          # Install dependencies
           COPY package.json yarn.lock ./
           RUN yarn install --frozen-lockfile
 
-          # Copy source
           COPY . .
-
-          # Build (TS → JS)
           RUN yarn build
 
-          # Copy medusa-config.ts → medusa-config.js manually so Medusa can load it
-          RUN cp medusa-config.ts medusa-config.js || true
 
-          # ===============================
-          # PRODUCTION IMAGE
-          # ===============================
           FROM node:20-alpine
-
           WORKDIR /app
 
-          # Install global Medusa CLI
           RUN yarn global add @medusajs/cli
 
-          # Copy app from builder
           COPY --from=builder /app /app
 
-          # ENV required by Medusa
           ENV HOST=0.0.0.0
           ENV PORT=9000
           ENV NODE_ENV=production
           ENV MEDUSA_ADMIN_ONBOARDING=off
 
-          # secrets (Azure overrides these)
+          # defaults (overridden by Azure)
           ENV JWT_SECRET=supersecret
           ENV COOKIE_SECRET=supersecret
           ENV STORE_CORS=*
@@ -174,14 +189,72 @@ jobs:
           ENV AUTH_CORS=*
           ENV DATABASE_URL=""
 
-          # Expose port
           EXPOSE 9000
 
-          # Run migrations, then start Medusa
-          CMD ["sh", "-c", "medusa db:setup && medusa start"]
+          CMD ["sh", "-c", "medusa db:migrate && medusa start"]
+
 
           DOCKERFILE
-          echo "Dockerfile created in ecomm-terraform/my-medusa-store"
+          echo "Dockerfile created in ecomm-terraform/my-medusa-store"      
+
+      
+
+      # - name: Create Dockerfile dynamically (inside my-medusa-store)
+      #   working-directory: ecomm-terraform/my-medusa-store
+      #   run: |
+      #     cat <<'DOCKERFILE' > Dockerfile
+      #     FROM node:20-alpine AS builder
+
+      #     WORKDIR /app
+
+      #     # Install dependencies
+      #     COPY package.json yarn.lock ./
+      #     RUN yarn install --frozen-lockfile
+
+      #     # Copy source
+      #     COPY . .
+
+      #     # Build (TS → JS)
+      #     RUN yarn build
+
+      #     # Copy medusa-config.ts → medusa-config.js manually so Medusa can load it
+      #     RUN cp medusa-config.ts medusa-config.js || true
+
+      #     # ===============================
+      #     # PRODUCTION IMAGE
+      #     # ===============================
+      #     FROM node:20-alpine
+
+      #     WORKDIR /app
+
+      #     # Install global Medusa CLI
+      #     RUN yarn global add @medusajs/cli
+
+      #     # Copy app from builder
+      #     COPY --from=builder /app /app
+
+      #     # ENV required by Medusa
+      #     ENV HOST=0.0.0.0
+      #     ENV PORT=9000
+      #     ENV NODE_ENV=production
+      #     ENV MEDUSA_ADMIN_ONBOARDING=off
+
+      #     # secrets (Azure overrides these)
+      #     ENV JWT_SECRET=supersecret
+      #     ENV COOKIE_SECRET=supersecret
+      #     ENV STORE_CORS=*
+      #     ENV ADMIN_CORS=*
+      #     ENV AUTH_CORS=*
+      #     ENV DATABASE_URL=""
+
+      #     # Expose port
+      #     EXPOSE 9000
+
+      #     # Run migrations, then start Medusa
+      #     CMD ["sh", "-c", "medusa db:setup && medusa start"]
+
+      #     DOCKERFILE
+      #     echo "Dockerfile created in ecomm-terraform/my-medusa-store"
 
       - name: Azure Login
         uses: azure/login@v2
