@@ -130,30 +130,61 @@ jobs:
         working-directory: ecomm-terraform/my-medusa-store
         run: |
           cat <<'DOCKERFILE' > Dockerfile
-          # ---- Builder Image ----
+          FROM node:20-alpine AS builder
+
+          # Set working directory
+          WORKDIR /app
+
+          # Install dependencies
+          COPY package.json yarn.lock ./
+          RUN yarn install --frozen-lockfile
+
+          # Copy source code
+          COPY . .
+
+          # Build Medusa (creates .medusa/server)
+          RUN yarn build
+
+          # ----------------------------
+          # PRODUCTION IMAGE
+          # ----------------------------
           FROM node:20-alpine
 
           WORKDIR /app
 
-          # Install dependencies
-          COPY package.json package-lock.json ./
-          RUN npm install --legacy-peer-deps
+          # Copy built app & node_modules
+          COPY --from=builder /app ./
 
-          # Copy all files
-          COPY . .
+          # ===============================
+          # REQUIRED ENV FOR MEDUSA v2
+          # ===============================
 
-          # Install Medusa CLI
-          RUN npm install -g @medusajs/cli
+          # Medusa must listen on 0.0.0.0 (Azure App Service requirement)
+          ENV HOST=0.0.0.0
 
-          # Build Medusa v2
-          RUN npm run build
+          # Azure sets PORT automatically, but we default to 9000 for local dev
+          ENV PORT=9000
 
-          # Medusa default port
-          EXPOSE 9000
+          # Medusa secrets (use real values in Azure App Service)
+          ENV JWT_SECRET=supersecret
+          ENV COOKIE_SECRET=supersecret
 
-          # Start server
-          # CMD ["npm", "run", "start"]
-          CMD ["sh", "-c", "medusa db:migrate && medusa start"]
+          # Your CORS URLs
+          ENV STORE_CORS=*
+          ENV ADMIN_CORS=*
+          ENV AUTH_CORS=*
+
+          # Database URL (Pipeline injects this!)
+          ENV DATABASE_URL=""
+
+          # Disable onboarding (it breaks builds)
+          ENV MEDUSA_ADMIN_ONBOARDING=off
+
+          # ===============================
+          # START WITH MIGRATIONS
+          # ===============================
+          CMD ["sh", "-c", "medusa migrations run && medusa start"]
+
 
 
 
