@@ -221,8 +221,8 @@ jobs:
           # CMD ["sh", "-c", "medusa db:migrate && medusa start"]
 
 
-          DOCKERFILE
-          echo "Dockerfile created in ecomm-terraform/my-medusa-store"      
+          # DOCKERFILE
+          # echo "Dockerfile created in ecomm-terraform/my-medusa-store"      
 
       
 
