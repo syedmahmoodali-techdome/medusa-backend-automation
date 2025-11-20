@@ -169,7 +169,6 @@ jobs:
           COPY . .
           RUN yarn build
 
-
           # ===============================
           # PRODUCTION IMAGE
           # ===============================
@@ -182,12 +181,6 @@ jobs:
 
           COPY --from=builder /app /app
 
-          # Required runtime env (Azure overrides these)
-          ENV NODE_ENV=production
-          ENV HOST=0.0.0.0
-          ENV PORT=9000
-          ENV MEDUSA_ADMIN_ONBOARDING=off
-
           EXPOSE 9000
 
           # Run entrypoint AFTER Azure env vars load
@@ -195,35 +188,6 @@ jobs:
           
           DOCKERFILE
           echo "Dockerfile created in ecomm-terraform/my-medusa-store" 
-          
-          # FROM node:20-alpine AS builder
-          # WORKDIR /app
-          # COPY package.json yarn.lock ./
-          # RUN yarn install --frozen-lockfile
-          # COPY . .
-          # RUN yarn build
-          # FROM node:20-alpine
-          # WORKDIR /app
-          # RUN yarn global add @medusajs/cli
-          # COPY --from=builder /app /app
-          # ENV HOST=0.0.0.0
-          # ENV PORT=9000
-          # ENV NODE_ENV=production
-          # ENV MEDUSA_ADMIN_ONBOARDING=off
-          # # defaults (overridden by Azure)
-          # ENV JWT_SECRET=supersecret
-          # ENV COOKIE_SECRET=supersecret
-          # ENV STORE_CORS=*
-          # ENV ADMIN_CORS=*
-          # ENV AUTH_CORS=*
-          # ENV DATABASE_URL=""
-          # EXPOSE 9000
-          # CMD ["sh", "-c", "medusa db:migrate && medusa start"]
-
-
-          # DOCKERFILE
-          # echo "Dockerfile created in ecomm-terraform/my-medusa-store"      
-
       
 
       # - name: Create Dockerfile dynamically (inside my-medusa-store)
