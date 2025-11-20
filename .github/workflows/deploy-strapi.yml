@@ -132,57 +132,50 @@ jobs:
           cat <<'DOCKERFILE' > Dockerfile
           FROM node:20-alpine AS builder
 
-          # Set working directory
           WORKDIR /app
 
           # Install dependencies
           COPY package.json yarn.lock ./
           RUN yarn install --frozen-lockfile
 
-          # Copy source code
+          # Copy source
           COPY . .
 
-          # Build Medusa (creates .medusa/server)
+          # Build Medusa (produces .medusa folder)
           RUN yarn build
 
-          # ----------------------------
+
+          # ===============================
           # PRODUCTION IMAGE
-          # ----------------------------
+          # ===============================
           FROM node:20-alpine
 
           WORKDIR /app
 
-          # Copy built app & node_modules
-          COPY --from=builder /app ./
+          # Install global Medusa CLI
+          RUN yarn global add @medusajs/cli
 
-          # ===============================
-          # REQUIRED ENV FOR MEDUSA v2
-          # ===============================
+          # Copy app from builder
+          COPY --from=builder /app /app
 
-          # Medusa must listen on 0.0.0.0 (Azure App Service requirement)
+          # ENV required by Medusa
           ENV HOST=0.0.0.0
-
-          # Azure sets PORT automatically, but we default to 9000 for local dev
           ENV PORT=9000
+          ENV NODE_ENV=production
+          ENV MEDUSA_ADMIN_ONBOARDING=off
 
-          # Medusa secrets (use real values in Azure App Service)
+          # secrets (Azure overrides these)
           ENV JWT_SECRET=supersecret
           ENV COOKIE_SECRET=supersecret
-
-          # Your CORS URLs
           ENV STORE_CORS=*
           ENV ADMIN_CORS=*
           ENV AUTH_CORS=*
-
-          # Database URL (Pipeline injects this!)
           ENV DATABASE_URL=""
 
-          # Disable onboarding (it breaks builds)
-          ENV MEDUSA_ADMIN_ONBOARDING=off
+          # Expose port
+          EXPOSE 9000
 
-          # ===============================
-          # START WITH MIGRATIONS
-          # ===============================
+          # Run migrations, then start Medusa
           CMD ["sh", "-c", "medusa migrations run && medusa start"]
 
 
