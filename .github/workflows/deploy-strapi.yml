@@ -149,7 +149,8 @@ jobs:
           EXPOSE 9000
 
           # Start server
-          CMD ["npm", "run", "start"]
+          #CMD ["npm", "run", "start"]
+          CMD ["sh", "-c", "medusa migrations run && medusa start"]
 
 
 
@@ -297,20 +298,20 @@ jobs:
           echo "App did not respond in time."
           exit 1
 
-      - name: Delete temporary ACR
-        if: always()
-        run: |
-          echo "Deleting temporary ACR..."
-          ACR_NAME="${{ needs.terraform.outputs.acr_name }}"
-          RG_NAME="${{ needs.terraform.outputs.resource_group_name }}"
+      # - name: Delete temporary ACR
+      #   if: always()
+      #   run: |
+      #     echo "Deleting temporary ACR..."
+      #     ACR_NAME="${{ needs.terraform.outputs.acr_name }}"
+      #     RG_NAME="${{ needs.terraform.outputs.resource_group_name }}"
 
-          if [ -z "$ACR_NAME" ]; then
-            echo "ERROR: ACR name is empty. Skipping delete."
-            exit 0
-          fi
+      #     if [ -z "$ACR_NAME" ]; then
+      #       echo "ERROR: ACR name is empty. Skipping delete."
+      #       exit 0
+      #     fi
 
-          echo "ACR = $ACR_NAME"
-          echo "RG  = $RG_NAME"
+      #     echo "ACR = $ACR_NAME"
+      #     echo "RG  = $RG_NAME"
 
-          az acr delete --name "$ACR_NAME" --resource-group "$RG_NAME" --yes
-          echo "ACR deleted successfully"
+      #     az acr delete --name "$ACR_NAME" --resource-group "$RG_NAME" --yes
+      #     echo "ACR deleted successfully"
