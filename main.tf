@@ -59,7 +59,7 @@ module "app_service" {
   location            = var.clinic_region
   clinic_name         = var.clinic_name
   #database_url  = var.database_url
-  cookie_secret = "3f42816e1c741ddf1fe249725cd1f8d2df4ceee07ea5f9973a941d58fd09d193"
+  COOKIE_SECRET = "3f42816e1c741ddf1fe249725cd1f8d2df4ceee07ea5f9973a941d58fd09d193"
 
   # docker image placeholders (pipeline will set actual image)
   image_name = "strapi-cms"
@@ -79,7 +79,7 @@ module "app_service" {
   # Strapi secrets generated here (you already had random resources)
   app_keys            = random_password.app_keys.result
   api_token_salt      = random_password.api_token_salt.result
-  admin_jwt_secret    = random_password.admin_jwt_secret.result
+  #admin_jwt_secret    = random_password.admin_jwt_secret.result
   transfer_token_salt = random_password.transfer_token_salt.result
   jwt_secret = random_password.jwt_secret.result
 
