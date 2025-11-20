@@ -158,7 +158,6 @@ jobs:
         working-directory: ecomm-terraform/my-medusa-store
         run: |
           cat <<'DOCKERFILE' > Dockerfile
-
           # -------------------------------
           # BASE IMAGE
           # -------------------------------
@@ -184,7 +183,7 @@ jobs:
           FROM node:18-alpine
           WORKDIR /app
 
-          COPY --from=base /app ./
+          COPY --from=base /app /app
 
           ENV NODE_ENV=production
 
