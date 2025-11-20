@@ -149,7 +149,7 @@ jobs:
           EXPOSE 9000
 
           # Start Medusa using start.sh
-          CMD ["./start.sh"]
+          CMD ["medusa", "start"]
 
 
           DOCKERFILE
