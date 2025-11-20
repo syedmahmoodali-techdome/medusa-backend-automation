@@ -141,9 +141,11 @@ jobs:
           # Copy source
           COPY . .
 
-          # Build Medusa (produces .medusa folder)
+          # Build (TS → JS)
           RUN yarn build
 
+          # Copy medusa-config.ts → medusa-config.js manually so Medusa can load it
+          RUN cp medusa-config.ts medusa-config.js || true
 
           # ===============================
           # PRODUCTION IMAGE
