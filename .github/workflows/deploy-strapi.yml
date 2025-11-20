@@ -221,7 +221,7 @@ jobs:
             "NODE_ENV": "production",
             "DATABASE_URL": "${DATABASE_URL}",
             "PUBLIC_BACKEND_URL": "https://${{ needs.terraform.outputs.cms_url }}",
-            STORE_CORS": "*",
+            "STORE_CORS": "*",
             "ADMIN_CORS": "*",
             "AUTH_CORS": "*"
           }
