@@ -159,38 +159,43 @@ jobs:
         run: |
           cat <<'DOCKERFILE' > Dockerfile
           # -------------------------------
-          # BASE IMAGE
+          # BASE / BUILD IMAGE
           # -------------------------------
-          FROM node:20-alpine AS base
+          FROM node:20-alpine AS builder
           WORKDIR /app
 
           # Install dependencies
           COPY package.json yarn.lock ./
-          RUN yarn install --frozen-lockfile
+          RUN yarn i  nstall --frozen-lockfile
 
-          # Copy source
+          # Copy source code
           COPY . .
 
-          # Create empty instrumentation file so Medusa won't crash
+          # Create empty instrumentation file to prevent crash
           RUN echo "module.exports = {}" > instrumentation.js
 
           # Build the project
           RUN yarn build
 
           # -------------------------------
-          # RUNTIME
+          # RUNTIME IMAGE
           # -------------------------------
-          FROM node:18-alpine
+          FROM node:20-alpine AS runtime
           WORKDIR /app
 
-          COPY --from=base /app /app
+          # Install Medusa CLI globally
+          RUN yarn global add @medusajs/cli
 
+          # Copy app from builder
+          COPY --from=builder /app /app
+
+          # Set environment
           ENV NODE_ENV=production
 
-          # Expose port
+          # Expose Medusa port
           EXPOSE 9000
 
-          # Start without running migration-scripts again
+          # Start Medusa without rebuilding
           CMD ["sh", "-c", "medusa db:migrate && medusa start"]
 
           
