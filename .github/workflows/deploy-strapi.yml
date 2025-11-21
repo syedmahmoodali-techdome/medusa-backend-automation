@@ -178,6 +178,8 @@ jobs:
           # Copy source
           COPY . .
 
+          RUN npm install
+
           # Build project
           RUN yarn build
 
@@ -191,7 +193,7 @@ jobs:
 
           # Copy entire project (IMPORTANT)
           COPY --from=builder /app /app
-          RUN cp medusa-config.ts /app/medusa-config.ts || true
+          #RUN cp medusa-config.ts /app/medusa-config.ts || true
 
           # Expose Medusa port
           EXPOSE 9000
