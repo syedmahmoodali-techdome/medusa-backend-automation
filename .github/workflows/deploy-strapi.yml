@@ -192,8 +192,7 @@ jobs:
           EXPOSE 9000
 
           # Run migrations THEN start server
-          CMD medusa migrations run && node ./dist/server.js
-
+          CMD ["sh", "-c", "npx medusa db:migrate && medusa start"]
           
           DOCKERFILE
           echo "Dockerfile created in ecomm-terraform/my-medusa-store" 
