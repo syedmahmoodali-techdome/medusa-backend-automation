@@ -127,30 +127,31 @@ jobs:
 
 
       #since error persists, lets try and override config
-      # - name: Override medusa-config.ts with JS version
-      #   working-directory: ecomm-terraform/my-medusa-store
-      #   run: |
-      #     cat <<'EOF' > medusa-config.js
-      #     import { loadEnv } from "@medusajs/framework/utils"
+      - name: Override medusa-config.ts with JS version
+        working-directory: ecomm-terraform/my-medusa-store
+        run: |
+          cat <<'EOF' > medusa-config.js
+          import { loadEnv } from "@medusajs/framework/utils"
 
-      #     // explicitly load environment variables
-      #     loadEnv(process.env.NODE_ENV || "production", process.cwd())
+          // explicitly load environment variables
+          loadEnv(process.env.NODE_ENV || "production", process.cwd())
 
-      #     export default {
-      #       projectConfig: {
-      #         databaseUrl: process.env.DATABASE_URL,
-      #         http: {
-      #           storeCors: process.env.STORE_CORS || "*",
-      #           adminCors: process.env.ADMIN_CORS || "*",
-      #           authCors: process.env.AUTH_CORS || "*",
-      #           jwtSecret: process.env.JWT_SECRET || "supersecret",
-      #           cookieSecret: process.env.COOKIE_SECRET || "supersecret",
-      #         },
-      #       },
-      #     }
-      #     EOF
+          export default {
+            projectConfig: {
+              databaseUrl: process.env.DATABASE_URL,
+              http: {
+                storeCors: process.env.STORE_CORS || "*",
+                adminCors: process.env.ADMIN_CORS || "*",
+                authCors: process.env.AUTH_CORS || "*",
+                jwtSecret: process.env.JWT_SECRET || "supersecret",
+                cookieSecret: process.env.COOKIE_SECRET || "supersecret",
+              },
+            },
+          }
+          EOF
 
-      #     echo "✔ medusa-config.js override created!"
+          echo "✔ medusa-config.js override created!"
+
 
 
       - name: Install Yarn
@@ -177,8 +178,6 @@ jobs:
           # Build project
           RUN yarn build
 
-
-
           # ---------- RUNTIME ----------
           FROM node:20 AS runtime
 
@@ -189,6 +188,7 @@ jobs:
 
           # Copy entire project (IMPORTANT)
           COPY --from=builder /app /app
+          RUN cp medusa-config.js /app/medusa-config.js || true
 
           # Expose Medusa port
           EXPOSE 9000
