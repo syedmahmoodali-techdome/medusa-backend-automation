@@ -183,10 +183,8 @@ jobs:
           # Install Medusa CLI
           RUN yarn global add @medusajs/cli
 
-          # Copy compiled output + node_modules
-          COPY --from=builder /app/.medusa/server ./dist
-          COPY --from=builder /app/node_modules ./node_modules
-          COPY --from=builder /app/package.json ./package.json
+          # Copy entire project (IMPORTANT)
+          COPY --from=builder /app /app
 
           # Expose Medusa port
           EXPOSE 9000
