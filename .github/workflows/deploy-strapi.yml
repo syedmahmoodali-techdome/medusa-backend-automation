@@ -182,6 +182,9 @@ jobs:
           # This will create .medusa/server containing built assets and a package.json for runtime deps
           RUN npx medusa build
 
+          #as per jay, migration to be done here
+          RUN npx medusa db:migrate
+
           # Install runtime (production) dependencies inside the built server folder
           WORKDIR /app/.medusa/server
           # prefer yarn if lockfile exists, fallback to npm
