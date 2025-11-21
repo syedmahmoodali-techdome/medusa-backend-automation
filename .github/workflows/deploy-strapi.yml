@@ -158,61 +158,41 @@ jobs:
         working-directory: ecomm-terraform/my-medusa-store
         run: |
           cat <<'DOCKERFILE' > Dockerfile
-          # -------------------------------
-          # BUILDER
-          # -------------------------------
-          FROM node:20-alpine AS builder
+          # ---------- BUILDER ----------
+          FROM node:18 AS builder
+
           WORKDIR /app
 
-          # Install system deps needed for building (git, python, make may be required by some packages)
-          RUN apk add --no-cache python3 make g++ git
-
-          # Copy package files and install everything (dev deps included) so we can build
+          # Install dependencies
           COPY package.json yarn.lock ./
           RUN yarn install --frozen-lockfile
 
           # Copy source
           COPY . .
 
-          # Prevent crashes from missing instrumentation (Medusa checks for instrumentation.register)
-          # Make sure instrumentation exports something minimal expected by Medusa build scripts
-          RUN printf "module.exports = {};\n" > instrumentation.js
+          # Build project
+          RUN yarn build
 
-          # Build backend + admin (use local CLI from node_modules)
-          # This will create .medusa/server containing built assets and a package.json for runtime deps
-          RUN npx medusa build
 
-          #as per jay, migration to be done here
-          RUN npx medusa db:migrate
 
-          # Install runtime (production) dependencies inside the built server folder
-          WORKDIR /app/.medusa/server
-          # prefer yarn if lockfile exists, fallback to npm
-          RUN if [ -f "/app/.medusa/server/yarn.lock" ]; then \
-                yarn install --production --frozen-lockfile ; \
-              else \
-                npm ci --only=production || npm install --only=production ; \
-              fi
+          # ---------- RUNTIME ----------
+          FROM node:18 AS runtime
 
-          # -------------------------------
-          # RUNTIME
-          # -------------------------------
-          FROM node:20-alpine AS runtime
           WORKDIR /app
 
-          # Copy only the built server (runtime files and node_modules) into the runtime image
-          COPY --from=builder /app/.medusa/server /app
+          # Install Medusa CLI
+          RUN yarn global add @medusajs/cli
 
-          # Ensure minimal system deps for runtime (if required)
-          RUN apk add --no-cache bash
+          # Copy compiled output + node_modules
+          COPY --from=builder /app/dist ./dist
+          COPY --from=builder /app/node_modules ./node_modules
+          COPY --from=builder /app/package.json ./package.json
 
-          ENV NODE_ENV=production
-          ENV PORT=9000
+          # Expose Medusa port
           EXPOSE 9000
 
-          # Use local medusa binary from node_modules/.bin (npx resolves it)
-          # You can change to "medusa start" if you know node_modules/.bin is in PATH in your runtime environment.
-          CMD ["npx", "medusa", "start"]
+          # Run migrations THEN start server
+          CMD medusa migrations run && node ./dist/server.js
 
           
           DOCKERFILE
