@@ -166,7 +166,7 @@ jobs:
 
           # Install dependencies
           COPY package.json yarn.lock ./
-          RUN yarn i  nstall --frozen-lockfile
+          RUN yarn install --frozen-lockfile
 
           # Copy source code
           COPY . .
