@@ -195,6 +195,9 @@ jobs:
           # Expose Medusa port
           EXPOSE 9000
 
+          # Build admin
+          RUN medusa build
+
           # Start Medusa without rebuilding
           CMD ["sh", "-c", "medusa db:migrate && medusa start"]
 
