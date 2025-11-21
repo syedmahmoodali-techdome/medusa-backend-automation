@@ -171,6 +171,10 @@ jobs:
           # Copy source
           COPY . .
 
+          
+          # Install medusa CLI here
+          RUN yarn global add @medusajs/cli
+
           # Build backend + admin
           RUN yarn build          # compile TS -> JS
           RUN medusa build        # build admin into .medusa/server/public/admin
