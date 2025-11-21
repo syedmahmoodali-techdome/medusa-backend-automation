@@ -191,7 +191,7 @@ jobs:
 
           # Copy entire project (IMPORTANT)
           COPY --from=builder /app /app
-          RUN cp medusa-config.js /app/medusa-config.js || true
+          RUN cp medusa-config.ts /app/medusa-config.ts || true
 
           # Expose Medusa port
           EXPOSE 9000
