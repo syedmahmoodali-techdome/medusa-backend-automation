@@ -159,7 +159,7 @@ jobs:
         run: |
           cat <<'DOCKERFILE' > Dockerfile
           # ---------- BUILDER ----------
-          FROM node:18 AS builder
+          FROM node:20 AS builder
 
           WORKDIR /app
 
@@ -176,7 +176,7 @@ jobs:
 
 
           # ---------- RUNTIME ----------
-          FROM node:18 AS runtime
+          FROM node:20 AS runtime
 
           WORKDIR /app
 
