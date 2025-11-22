@@ -229,7 +229,7 @@ jobs:
           COPY . .
 
           #buid medusa
-          RUN npx medusa build
+          RUN npm run build
 
           # Expose the port Medusa runs on
           EXPOSE 9000
