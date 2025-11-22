@@ -205,38 +205,76 @@ jobs:
       
 
 
-      #this is not the actual dockerfile i have created, i ijust took it from the medusa docs
+      # #this is not the actual dockerfile i have created, i ijust took it from the medusa docs, it gives couldnt find index.html error, so doing the below dockerfile
+      # - name: Create Dockerfile dynamically (inside my-medusa-store)
+      #   working-directory: ecomm-terraform/my-medusa-store
+      #   run: |
+      #     cat <<'DOCKERFILE' > Dockerfile
+      #     # Development Dockerfile for Medusa
+      #     FROM node:20-alpine
+
+      #     # Set working directory
+      #     # WORKDIR /server
+
+      #     # Copy package files and npm config
+      #     COPY package.json package-lock.json ./
+
+      #     # Install all dependencies using npm
+      #     RUN npm install --legacy-peer-deps
+
+      #     # Install Medusa CLI
+      #     RUN npm install -g @medusajs/cli
+
+      #     # Copy source code
+      #     COPY . .
+
+      #     #buid medusa
+      #     RUN npm run build
+
+      #     # Expose the port Medusa runs on
+      #     EXPOSE 9000
+
+      #     # Start with migrations and then the development server
+      #     # CMD ["./start.sh"]
+          
+      #     CMD ["sh", "-c", "npx medusa db:migrate && npx medusa start"]
+
+      #     DOCKERFILE
+      #     echo "Dockerfile created in ecomm-terraform/my-medusa-store"
+
+
+
+      #using this dockerfile as initial step to resolve couldnt find index.html error
       - name: Create Dockerfile dynamically (inside my-medusa-store)
         working-directory: ecomm-terraform/my-medusa-store
         run: |
           cat <<'DOCKERFILE' > Dockerfile
-          # Development Dockerfile for Medusa
-          FROM node:20-alpine
+          # ---------- BUILDER ----------
+          FROM node:20 AS builder
 
-          # Set working directory
-          # WORKDIR /server
+          WORKDIR /server
 
-          # Copy package files and npm config
           COPY package.json package-lock.json ./
-
-          # Install all dependencies using npm
           RUN npm install --legacy-peer-deps
 
-          # Install Medusa CLI
-          RUN npm install -g @medusajs/cli
-
-          # Copy source code
           COPY . .
 
-          #buid medusa
+          # Medusa build – this generates .medusa/server with admin
           RUN npm run build
 
-          # Expose the port Medusa runs on
+
+          # ---------- RUNTIME ----------
+          FROM node:20
+
+          WORKDIR /server
+
+          # install medusa cli
+          RUN npm install -g @medusajs/cli
+
+          COPY --from=builder /server /server
+
           EXPOSE 9000
 
-          # Start with migrations and then the development server
-          # CMD ["./start.sh"]
-          
           CMD ["sh", "-c", "npx medusa db:migrate && npx medusa start"]
 
           DOCKERFILE
@@ -309,7 +347,9 @@ jobs:
             "PUBLIC_BACKEND_URL": "https://${{ needs.terraform.outputs.cms_url }}",
             "STORE_CORS": "*",
             "ADMIN_CORS": "*",
-            "AUTH_CORS": "*"
+            "AUTH_CORS": "*",
+            "DISABLE_MEDUSA_ADMIN": "false",
+            "MEDUSA_WORKER_MODE": "server"
           }
           EOF
 
