@@ -225,6 +225,9 @@ jobs:
           # Copy source code
           COPY . .
 
+          #buid medusa
+          RUN npm run build
+
           # Expose the port Medusa runs on
           EXPOSE 9000
 
