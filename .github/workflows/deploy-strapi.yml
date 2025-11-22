@@ -173,12 +173,11 @@ jobs:
 
           # Install dependencies
           COPY package.json yarn.lock ./
-          RUN yarn install --frozen-lockfile
+          #RUN yarn install --frozen-lockfile
+          RUN npm install --legacy-peer-deps
 
           # Copy source
           COPY . .
-
-          RUN npm install
 
           # Build project
           RUN yarn build
