@@ -231,7 +231,7 @@ jobs:
           # Start with migrations and then the development server
           # CMD ["./start.sh"]
           
-          CMD ["sh", "-c", "npx medusa db:migrate && medusa start"]
+          CMD ["sh", "-c", "npx medusa db:migrate && npx medusa start"]
 
           DOCKERFILE
           echo "Dockerfile created in ecomm-terraform/my-medusa-store"
