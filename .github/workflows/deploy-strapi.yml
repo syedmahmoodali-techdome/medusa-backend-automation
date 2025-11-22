@@ -166,13 +166,13 @@ jobs:
           # ---------- BUILDER ----------
           FROM node:20 AS builder
 
-          WORKDIR /app
+          WORKDIR /server
 
           # Copy TS config first
-          COPY medusa-config.ts ./
+          # COPY medusa-config.ts ./
 
           # Install dependencies
-          COPY package.json yarn.lock ./
+          COPY package.json package-lock.json ./
           #RUN yarn install --frozen-lockfile
           RUN npm install --legacy-peer-deps
 
@@ -185,13 +185,13 @@ jobs:
           # ---------- RUNTIME ----------
           FROM node:20 AS runtime
 
-          WORKDIR /app
+          WORKDIR /server
 
           # Install Medusa CLI
           RUN yarn global add @medusajs/cli
 
           # Copy entire project (IMPORTANT)
-          COPY --from=builder /app /app
+          COPY --from=builder /server /server
           #RUN cp medusa-config.ts /app/medusa-config.ts || true
 
           # Expose Medusa port
