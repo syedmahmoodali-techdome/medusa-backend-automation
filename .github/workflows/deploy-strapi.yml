@@ -451,11 +451,11 @@ jobs:
       - name: Wait for Medusa to respond
         run: |
           APP_HOST="${{ needs.terraform.outputs.cms_url }}"
-          echo "Waiting for https://${APP_HOST}/app to respond..."
+          echo "Waiting for https://${APP_HOST}/health to respond..."
           # wait until curl returns success
           for i in $(seq 1 30); do
-            if curl -sS --fail "https://${APP_HOST}" >/dev/null 2>&1; then
-              echo "App responded at https://${APP_HOST}/app"
+            if curl -sS --fail "https://${APP_HOST}/health" >/dev/null 2>&1; then
+              echo "App responded at https://${APP_HOST}/health && https://${APP_HOST}/app/login"
               exit 0
             fi
             echo "Attempt $i: no response yet..."
