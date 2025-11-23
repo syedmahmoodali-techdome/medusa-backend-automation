@@ -314,8 +314,11 @@ jobs:
           #RUN npx medusa user -e ali@clinic.com -p StrongPass123! || true
 
           EXPOSE 9000
-          RUN npx medusa user -e admin@example.com -p StrongPass123! || true
-          CMD ["sh", "-c", "npx medusa db:migrate && npx medusa start"]
+          CMD ["sh", "-c", "
+            npx medusa db:migrate &&
+            npx medusa user -e ali@clinic.com -p StrongPass123! || true &&
+            npx medusa start
+          "]
 
           DOCKERFILE
           echo "Dockerfile created in ecomm-terraform/my-medusa-store"
