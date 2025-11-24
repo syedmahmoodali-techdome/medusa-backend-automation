@@ -3,13 +3,13 @@ provider "azurerm" {
 }
 
 # Container Registry (ACR)
-resource "azurerm_container_registry" "acr" {
-  name                = "${replace(lower(var.clinic_name), "-", "")}acr"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  sku                 = "Basic"
-  admin_enabled       = true
-}
+#resource "azurerm_container_registry" "acr" {
+#  name                = "${replace(lower(var.clinic_name), "-", "")}acr"
+#  resource_group_name = var.resource_group_name
+#  location            = var.location
+#  sku                 = "Basic"
+#  admin_enabled       = true
+#}
 
 # Linux Web App
 resource "azurerm_linux_web_app" "app_service" {
