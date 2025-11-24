@@ -20,8 +20,8 @@
     "admin_lastname": "Clinic"
   },
   "database": {
-    "name": "strapi-db-ali",
-    "username": "strapi_admin",
+    "name": "medusa-db-ali",
+    "username": "medusa_admin",
     "password": "DbPass@123"
   },
   "azure": {
