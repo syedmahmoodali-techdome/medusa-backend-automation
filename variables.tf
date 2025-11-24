@@ -59,12 +59,12 @@ variable "strapi_repo_subdir" {
   default     = ""
 }
 
-variable "strapi_admin_email" {
+variable "medusa_admin_email" {
   description = "Initial Strapi admin email"
   type        = string
 }
 
-variable "strapi_admin_password" {
+variable "medusa_admin_password" {
   description = "Initial Strapi admin password (will be marked sensitive)"
   type        = string
   sensitive   = true
