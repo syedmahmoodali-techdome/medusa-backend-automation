@@ -37,25 +37,25 @@ output "app_service_name" {
   value = module.app_service.app_service_name
 }
 
-output "acr_name" {
-  value = module.app_service.acr_name
-}
+#output "acr_name" {
+#  value = module.app_service.acr_name
+#}
 
-output "acr_login_server" {
-  value = module.app_service.acr_login_server
-}
+#output "acr_login_server" {
+#  value = module.app_service.acr_login_server
+#}
 
-output "acr_admin_username" {
-  description = "ACR admin username (sensitive)"
-  value       = module.app_service.acr_admin_username
-  sensitive   = true
-}
+#output "acr_admin_username" {
+#  description = "ACR admin username (sensitive)"
+#  value       = module.app_service.acr_admin_username
+#  sensitive   = true
+#}
 
-output "acr_admin_password" {
-  description = "ACR admin password (sensitive)"
-  value       = module.app_service.acr_admin_password
-  sensitive   = true
-}
+#output "acr_admin_password" {
+#  description = "ACR admin password (sensitive)"
+#  value       = module.app_service.acr_admin_password
+#  sensitive   = true
+#}
 
 output "db_host" {
   description = "PostgreSQL FQDN"
