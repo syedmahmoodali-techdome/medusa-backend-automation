@@ -10,7 +10,7 @@
       "favicon_url": "https://cdn.example.com/ali-favicon.ico"
     }
   },
-  "strapi": {
+  "medusa": {
     "repo": "https://github.com/strapi/strapi.git",
     "branch": "main",
     "repo_subdir": "my-strapi-project",
