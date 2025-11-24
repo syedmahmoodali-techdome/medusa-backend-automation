@@ -73,8 +73,8 @@ module "app_service" {
   db_password = module.database.db_password
 
   # medusa admin
-  medusa_admin_email    = var.strapi_admin_email
-  medusa_admin_password = var.strapi_admin_password
+  medusa_admin_email    = var.medusa_admin_email
+  medusa_admin_password = var.medusa_admin_password
 
   # Strapi secrets generated here (you already had random resources)
   app_keys            = random_password.app_keys.result
