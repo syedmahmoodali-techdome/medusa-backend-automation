@@ -226,6 +226,11 @@ jobs:
         run: |
           az acr login --name "MedusaBackendACR"
 
+      - name: Docker login to ACR
+        run: |
+          USER=$(az acr credential show --name "MedusaBackendACR" --query "username" -o tsv)
+          PASS=$(az acr credential show --name "MedusaBackendACR" --query "passwords[0].value" -o tsv)
+          echo "$PASS" | docker login MedusaBackendACR.azurecr.io --username "$USER" --password-stdin
 
       - name: Build Docker image
         working-directory: ecomm-terraform/my-medusa-store
