@@ -70,11 +70,11 @@ variable "db_password" {
 #}
 
 # Strapi admin
-variable "strapi_admin_email" {
+variable "medusa_admin_email" {
   type        = string
 }
 
-variable "strapi_admin_password" {
+variable "medusa_admin_password" {
   type        = string
   sensitive   = true
 }
