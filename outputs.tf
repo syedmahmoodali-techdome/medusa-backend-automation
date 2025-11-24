@@ -5,12 +5,12 @@ output "cms_url" {
 
 output "cms_admin_email" {
   description = "configured Strapi admin email"
-  value       = var.strapi_admin_email
+  value       = var.medusa_admin_email
 }
 
 output "cms_admin_password" {
   description = "initial Strapi admin password"
-  value       = var.strapi_admin_password
+  value       = var.medusa_admin_password
   sensitive   = true
 }
 
