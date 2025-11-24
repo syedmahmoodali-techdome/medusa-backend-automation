@@ -38,10 +38,10 @@ jobs:
             clinic_name: .clinic.name,
             clinic_environment: .clinic.environment,
             clinic_region: .clinic.region,
-            strapi_repo: .strapi.repo,
-            strapi_branch: .strapi.branch,
-            strapi_admin_email: .strapi.admin_email,
-            strapi_admin_password: .strapi.admin_password,
+            strapi_repo: .medusa.repo,
+            strapi_branch: .medusa.branch,
+            medusa_admin_email: .medusa.admin_email,
+            medusa_admin_password: .medusa.admin_password,
             db_name: .database.name,
             db_username: .database.username,
             db_password: .database.password,
@@ -86,8 +86,8 @@ jobs:
         id: outputs
         run: |
           echo "::debug::capturing terraform outputs"
-          echo "acr_name=$(terraform output -raw acr_name)" >> $GITHUB_OUTPUT
-          echo "acr_login_server=$(terraform output -raw acr_login_server)" >> $GITHUB_OUTPUT
+          # echo "acr_name=$(terraform output -raw acr_name)" >> $GITHUB_OUTPUT
+          # echo "acr_login_server=$(terraform output -raw acr_login_server)" >> $GITHUB_OUTPUT
           echo "app_service_name=$(terraform output -raw app_service_name)" >> $GITHUB_OUTPUT
           echo "resource_group_name=$(terraform output -raw resource_group_name)" >> $GITHUB_OUTPUT
           echo "db_host=$(terraform output -raw db_host)" >> $GITHUB_OUTPUT
@@ -114,6 +114,46 @@ jobs:
 
       - name: Checkout infra repo (this repo)
         uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update -y && sudo apt-get install -y jq
+
+      - name: Generate terraform.tfvars.json from clinic-config.json
+        run: |
+          # keep existing mapping (adjust clinic-config.json as needed for medusa)
+          jq '{
+            clinic_name: .clinic.name,
+            clinic_environment: .clinic.environment,
+            clinic_region: .clinic.region,
+            strapi_repo: .medusa.repo,
+            strapi_branch: .medusa.branch,
+            medusa_admin_email: .medusa.admin_email,
+            medusa_admin_password: .medusa.admin_password,
+            db_name: .database.name,
+            db_username: .database.username,
+            db_password: .database.password,
+            azure_resource_group_prefix: .azure.resource_group_prefix,
+            azure_app_service_plan_sku: .azure.app_service_plan_sku,
+            linked_storefront_url: .integration.linked_storefront_url,
+            backend_url: .integration.backend_url,
+            brand_primary_color: .clinic.branding.primary_color,
+            brand_secondary_color: .clinic.branding.secondary_color,
+            brand_logo_url: .clinic.branding.logo_url,
+            brand_favicon_url: .clinic.branding.favicon_url,
+            strapi_admin_firstname: .strapi.admin_firstname,
+            strapi_admin_lastname: .strapi.admin_lastname
+          }' clinic-config.json > terraform.tfvars.json
+          echo "terraform.tfvars.json generated."
+
+      - name: Load Medusa admin vars
+        id: medusa_vars
+        run: |
+          ADMIN_EMAIL=$(jq -r '.medusa_admin_email' terraform.tfvars.json)
+          ADMIN_PASS=$(jq -r '.medusa_admin_password' terraform.tfvars.json)
+
+          echo "ADMIN_EMAIL=$ADMIN_EMAIL" >> $GITHUB_ENV
+          echo "ADMIN_PASS=$ADMIN_PASS" >> $GITHUB_ENV
+
 
       - name: Show repo layout (debug)
         run: ls -la || true
@@ -160,8 +200,14 @@ jobs:
           #RUN npx medusa user -e ali@clinic.com -p StrongPass123! || true
 
           EXPOSE 9000
-          CMD ["sh", "-c", "npx medusa db:migrate && (npx medusa user -e ali@clinic.com -p StrongPass123! || true) && npx medusa start"]
+          # CMD ["sh", "-c", "npx medusa db:migrate && (npx medusa user -e ali@clinic.com -p StrongPass123! || true) && npx medusa start"]
+          CMD ["sh", "-c", " \
+            npx medusa db:migrate && \
+            (npx medusa user -e \"$MEDUSA_ADMIN_EMAIL\" -p \"$MEDUSA_ADMIN_PASSWORD\" || true) && \
+            npx medusa start \
+          "]
 
+          
           DOCKERFILE
           echo "Dockerfile created in ecomm-terraform/my-medusa-store"
 
@@ -239,7 +285,9 @@ jobs:
             "ADMIN_CORS": "*",
             "AUTH_CORS": "*",
             "DISABLE_MEDUSA_ADMIN": "false",
-            "MEDUSA_WORKER_MODE": "server"
+            "MEDUSA_WORKER_MODE": "server",
+            "MEDUSA_ADMIN_EMAIL": "${{ env.ADMIN_EMAIL }}",
+            "MEDUSA_ADMIN_PASSWORD": "${{ env.ADMIN_PASS }}"
           }
           EOF
 
