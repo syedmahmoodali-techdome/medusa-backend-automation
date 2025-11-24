@@ -283,41 +283,41 @@ jobs:
 
 
       #trying to play around under .medusa/server to resolve the same error
-      - name: Create Dockerfile dynamically (inside my-medusa-store)
-        working-directory: ecomm-terraform/my-medusa-store
-        run: |
-          cat <<'DOCKERFILE' > Dockerfile
-          FROM node:20-alpine
+      # - name: Create Dockerfile dynamically (inside my-medusa-store)
+      #   working-directory: ecomm-terraform/my-medusa-store
+      #   run: |
+      #     cat <<'DOCKERFILE' > Dockerfile
+      #     FROM node:20-alpine
 
-          # Set working directory
-          WORKDIR /server
+      #     # Set working directory
+      #     WORKDIR /server
 
-          # Copy package files
-          COPY package.json package-lock.json ./
+      #     # Copy package files
+      #     COPY package.json package-lock.json ./
 
-          # Install all dependencies
-          RUN npm install --legacy-peer-deps
+      #     # Install all dependencies
+      #     RUN npm install --legacy-peer-deps
 
-          # Copy source code
-          COPY . .
+      #     # Copy source code
+      #     COPY . .
 
-          # Build Medusa to .medusa/server
-          RUN npm run build
+      #     # Build Medusa to .medusa/server
+      #     RUN npm run build
 
-          # Move into the compiled directory
-          WORKDIR /server/.medusa/server
+      #     # Move into the compiled directory
+      #     WORKDIR /server/.medusa/server
 
-          # Install production dependencies INSIDE the build folder
-          RUN npm install --legacy-peer-deps
+      #     # Install production dependencies INSIDE the build folder
+      #     RUN npm install --legacy-peer-deps
 
-          #creating admin
-          #RUN npx medusa user -e ali@clinic.com -p StrongPass123! || true
+      #     #creating admin
+      #     #RUN npx medusa user -e ali@clinic.com -p StrongPass123! || true
 
-          EXPOSE 9000
-          CMD ["sh", "-c", "npx medusa db:migrate && (npx medusa user -e ali@clinic.com -p StrongPass123! || true) && npx medusa start"]
+      #     EXPOSE 9000
+      #     CMD ["sh", "-c", "npx medusa db:migrate && (npx medusa user -e ali@clinic.com -p StrongPass123! || true) && npx medusa start"]
 
-          DOCKERFILE
-          echo "Dockerfile created in ecomm-terraform/my-medusa-store"
+      #     DOCKERFILE
+      #     echo "Dockerfile created in ecomm-terraform/my-medusa-store"
 
       
 
