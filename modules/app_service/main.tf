@@ -43,8 +43,8 @@ resource "azurerm_linux_web_app" "app_service" {
     NODE_ENV                        = "production"
 
     # Strapi admin
-    STRAPI_ADMIN_EMAIL    = var.strapi_admin_email
-    STRAPI_ADMIN_PASSWORD = var.strapi_admin_password
+    MEDUSA_ADMIN_EMAIL    = var.medusa_admin_email
+    MEDUSA_ADMIN_PASSWORD = var.medusa_admin_password
     
 
     # Strapi secrets
